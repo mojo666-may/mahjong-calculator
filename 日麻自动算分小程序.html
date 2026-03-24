@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>日麻高级算分器</title>
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+<style>
+body { font-family: Arial; background:#0f172a; color:white; padding:10px; }
+.container { max-width:420px; margin:auto; }
+.card { background:#1e293b; padding:15px; border-radius:12px; margin-bottom:12px; }
+input, select, button { width:100%; margin:6px 0; padding:10px; border-radius:8px; border:none; }
+button { background:#22c55e; color:white; font-weight:bold; }
+.result { margin-top:10px; font-size:16px; }
+.small { font-size:12px; color:#94a3b8; }
+</style>
+</head>
+<body>
+<div class="container">
+
+<h2>🀄 日麻高级算分器</h2>
+
+<div class="card">
+<h3>📷 拍照识别手牌</h3>
+<input type="file" accept="image/*" capture="environment" id="imageInput">
+<button onclick="recognizeImage()">识别手牌</button>
+<div class="small">※ 识别结果会自动填入下方输入框</div>
+</div>
+
+<div class="card">
+<h3>🧩 输入手牌</h3>
+<input id="hand" placeholder="例：123m123p123s789s55z">
+<div class="small">m=万 p=筒 s=索 z=字牌</div>
+</div>
+
+<div class="card">
+<h3>⚙️ 设置</h3>
+<select id="winType">
+<option value="tsumo">自摸</option>
+<option value="ron">荣和</option>
+</select>
+<select id="dealer">
+<option value="no">非庄</option>
+<option value="yes">庄家</option>
+</select>
+<button onclick="analyze()">自动算番 + 算分</button>
+</div>
+
+<div class="card result" id="result"></div>
+
+</div>
+
+<script>
+async function recognizeImage() {
+    const file = document.getElementById('imageInput').files[0];
+    if (!file) return;
+
+    document.getElementById('result').innerHTML = '🔍 识别中...';
+
+    const { data: { text } } = await Tesseract.recognize(file, 'eng');
+
+    // 简单清洗（实际麻将识别需要AI模型，这里做演示）
+    let cleaned = text.replace(/[^0-9mpsz]/g, '').toLowerCase();
+
+    document.getElementById('hand').value = cleaned;
+    document.getElementById('result').innerHTML = '📷 识别结果：' + cleaned + '<br>（请手动检查是否正确）';
+}
+
+function analyze() {
+    let hand = document.getElementById('hand').value;
+    let dealer = document.getElementById('dealer').value === 'yes';
+    let type = document.getElementById('winType').value;
+
+    let han = 0;
+    let yaku = [];
+
+    if (!hand.match(/[19z]/)) {
+        han++;
+        yaku.push('断幺九');
+    }
+
+    if (hand.includes('123m') && hand.includes('123p') && hand.includes('123s')) {
+        han += 2;
+        yaku.push('三色同顺');
+    }
+
+    if (han === 0) {
+        document.getElementById('result').innerHTML = '❌ 未检测到役';
+        return;
+    }
+
+    let fu = 30;
+    let base = fu * Math.pow(2, han + 2);
+
+    let text = '检测役：' + yaku.join('、') + '<br>';
+    text += '番数：' + han + '番<br>';
+
+    if (type === 'ron') {
+        let points = dealer ? base * 6 : base * 4;
+        points = Math.ceil(points / 100) * 100;
+        text += '💰 荣和：' + points + '点';
+    } else {
+        if (dealer) {
+            let pay = Math.ceil((base * 2) / 100) * 100;
+            text += '💰 自摸：每人 ' + pay + '点';
+        } else {
+            let dealerPay = Math.ceil((base * 2) / 100) * 100;
+            let otherPay = Math.ceil(base / 100) * 100;
+            text += '💰 自摸：庄家 ' + dealerPay + ' / 闲家 ' + otherPay;
+        }
+    }
+
+    text += '<br><div class="small">※ OCR为演示级，复杂牌面建议手动输入</div>';
+
+    document.getElementById('result').innerHTML = text;
+}
+</script>
+
+</body>
+</html>
